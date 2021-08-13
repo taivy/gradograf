@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  api:
+    build: api
+    command: ["flask", "run", "--host=0.0.0.0"]
+    volumes:
+      - ./api:/backend
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=app.py
+    ports:
+      - "5000:5000"
+
+  client:
+    build: client
+    #command: "yarn start"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      #- REACT_APP_MAPBOX_TOKEN=YOUR_TOKEN
+      - REACT_APP_MAPBOX_TOKEN=pk.eyJ1IjoidGFpdnkiLCJhIjoiY2tzOTVmd3NwMTE0MTJ1cm55cXNubnBsZiJ9.35uM3XiaxOLcCSCAuXPHhQ
+      - REACT_APP_API_URL=http://localhost:5000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
