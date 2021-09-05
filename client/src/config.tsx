@@ -622,7 +622,6 @@ export const config = {
       "latitude": 60.2082220440083,
       "longitude": 39.72392990517035,
       "pitch": 0,
-      "zoom": 10.098456912728658,
       "isSplit": false
     },
     "mapStyle": {
@@ -635,7 +634,7 @@ export const config = {
         "building": true,
         "water": true,
         "land": true,
-        "3d building": false
+        "3d building": true
       },
       "threeDBuildingColor": [
         9.665468314072013,

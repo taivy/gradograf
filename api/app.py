@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-from flask import Flask, jsonify, make_response
+from flask import Flask, jsonify, make_response, request
 from flask_cors import CORS, cross_origin
 
 
@@ -11,12 +11,14 @@ cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 
+tracks_n_real_time = 0
+
 
 DATA_FILE_PATH = 'data.json'
 
 
 def load_data(file_path):
-    p =  Path(file_path)
+    p = Path(file_path)
     if not p.exists():
         print("Data file not found, exiting!")
         os.exit(1)
@@ -44,16 +46,31 @@ def devices_id():
     response = make_response(jsonify(json_resp))
     return response
 
-
+#device_id: device_tracks[0]
 @app.route('/api/devices/track', methods=['GET'])
 @cross_origin()
 def devices_tracks():
+    global tracks_n_real_time
+
+    limit = request.args.get('limit', None)
+
+    if limit is not None:
+        limit = int(limit)
+        limited_data = dict()
+        left_i = tracks_n_real_time
+        right_i = tracks_n_real_time + limit
+        for device_id, device_tracks in data.items():
+            #limited_data[device_id] = device_tracks[-limit:]
+            limited_data[device_id] = device_tracks[left_i:right_i]
+
     json_resp = {
         "status": "ok",
         "tracks": data
     }
 
     response = make_response(jsonify(json_resp))
+
+    tracks_n_real_time += 1
     return response
 
 

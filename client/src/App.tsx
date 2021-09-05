@@ -1,4 +1,6 @@
-import React, { useEffect } from 'react';
+// @ts-nocheck
+
+import React, { useEffect, useState, useCallback } from 'react';
 import { Provider, useDispatch } from "react-redux";
 import { configureStore } from '@reduxjs/toolkit'
 
@@ -10,8 +12,8 @@ import KeplerGl from "kepler.gl";
 import { addDataToMap } from "kepler.gl/actions";
 // @ts-ignore
 import keplerGlReducer from "kepler.gl/reducers";
-
-import useSwr from "swr";
+// @ts-ignore
+import KeplerGlSchema from 'kepler.gl/schemas';
 
 import { config as mapConfig } from "./config";
 
@@ -27,11 +29,33 @@ const store = configureStore({
 
 const App: React.FC = ({}) => {
   return (
-    <Provider store={store}>
-      <Map />
-    </Provider>
+    <div style={{
+      position: 'relative'
+    }}>
+      <Provider store={store}>
+        <Map />
+      </Provider>
+      {/*
+      <div style={{
+        position: 'absolute',
+        left: '100px',
+        top: '100px',
+        zIndex: '1000',
+      }}>
+        <button 
+          onClick={() => console.log("click btn")}
+          style={{
+            fontSize: '30pt',
+            backgroundColor: 'red'
+          }}
+        >I am button</button>
+      </div>
+  	  */}
+    </div>
   )
 }
+
+//      "zoom": 10.098456912728658,
 
 
 const Map: React.FC = ({}) => {
@@ -57,6 +81,7 @@ const Map: React.FC = ({}) => {
         rows.push(row);
       }
     }
+
     return {
       "fields": [
         {"name":"step","format":"","type":"integer"},
@@ -72,19 +97,49 @@ const Map: React.FC = ({}) => {
       ], "rows": rows
     }
   }
-  const { data } = useSwr("mapData", async () => {
+
+
+  const [data, setData] = useState(null);
+
+  const fetchData = async () => {
     const response = await fetch(
-      apiUrl + "/api/devices/track"
+      apiUrl + "/api/devices/track?limit=150"
     );
-    const data = await response.json();
-    if (data && data['status'] === "ok") {
-      return data;
+    const dataNew = await response.json();
+    if (dataNew && dataNew['status'] === "ok") {
+      setData(dataNew);
     }
-  });
+  }
 
   useEffect(() => {
+  	fetchData();
+  }, []);
+
+  const [isFirstRender, setIsFirstRender] = useState(true);
+  const [isFirstStart, setIsFirstStart] = useState(true);
+
+  const getConfig = (isFirstRender) => {
+	  if (isFirstRender) {
+	  	return mapConfig;
+	  } else {
+	  	try {
+	  		return KeplerGlSchema.getConfigToSave();
+	  	} catch(e) {
+	  		console.log(e);
+	  		return mapConfig;
+	  	}
+	  	
+	  }
+  }
+
+
+  /*
+  const f = useCallback(() => {
+  	console.log("data", data)
     if (data) {
       const dataTransformed = transformData(data["tracks"]);
+      let mapConfigToLoad = getConfig(isFirstRender)
+
       dispatch(
         addDataToMap({
           datasets: {
@@ -98,19 +153,74 @@ const Map: React.FC = ({}) => {
             centerMap: true,
             readOnly: false
           },
-          config: mapConfig
+          config: mapConfigToLoad
         })
       );
+      setIsFirstRender(false);
+
     }
-  }, [dispatch, data]);
+    fetchData()
+    //setTimeout(f, 5000);
+  }, [data, isFirstRender, dispatch])
+
+
+  const starter = () => {
+  	f();
+  	setTimeout(starter, 5000);
+  }
+
+
+  if (isFirstStart) {
+		//f();
+		starter();
+		setIsFirstStart(false);
+  }
+  */
+
+  useEffect(() => {
+  	console.log("data", data)
+    if (data) {
+      const dataTransformed = transformData(data["tracks"]);
+      setTimeout(() => fetchData(), 100000)
+
+      let mapConfigToLoad = getConfig(isFirstRender)
+
+      dispatch(
+        addDataToMap({
+          datasets: {
+            info: {
+              label: "Map",
+              id: "map"
+            },
+            data: dataTransformed
+          },
+          option: {
+            centerMap: true,
+            readOnly: false
+          },
+          config: mapConfigToLoad
+        })
+      );
+      setIsFirstRender(false);
+
+    }
+  	//fetchData()
+    //setTimeout(f, 5000);
+  }, [data, isFirstRender, dispatch, transformData])
+
 
   return (
-    <KeplerGl
-      id="map"
-      mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_TOKEN}
-      width={window.innerWidth}
-      height={window.innerHeight}
-    />
+      <KeplerGl
+        style={{
+          position: 'relative',
+          top: 0,
+          left: 0
+        }}
+        id="map"
+        mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_TOKEN}
+        width={window.innerWidth}
+        height={window.innerHeight}
+      />
   );
 }
 
