@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Provider, useDispatch } from "react-redux";
+import { Button } from '@material-ui/core';
 import { configureStore } from '@reduxjs/toolkit'
 
 // @ts-ignore
@@ -28,6 +29,29 @@ const store = configureStore({
 
 
 const App: React.FC = ({}) => {
+  const apiUrl = process.env.REACT_APP_API_URL;
+
+  const fetchDevicesIds = async () => {
+    const response = await fetch(
+      apiUrl + "/devices/id"
+    );
+    if (!response.ok) {
+      alert(`Ошибка запроса к бэкенду: ${response.status}`);
+      return
+    }
+    const data = await response.json();
+    if (data && data['status'] === "ok") {
+      return data['ids']
+    }
+  }
+
+  const btnClickHandler = useCallback(async () => {
+    const devicesIds = await fetchDevicesIds();
+    console.log("devicesIds", devicesIds)
+
+  }, [])
+
+
   return (
     <div style={{
       position: 'relative'
@@ -35,27 +59,23 @@ const App: React.FC = ({}) => {
       <Provider store={store}>
         <Map />
       </Provider>
-      {/*
+      
       <div style={{
         position: 'absolute',
-        left: '100px',
-        top: '100px',
+        right: '70px',
+        top: '20px',
         zIndex: '1000',
       }}>
-        <button 
-          onClick={() => console.log("click btn")}
-          style={{
-            fontSize: '30pt',
-            backgroundColor: 'red'
-          }}
-        >I am button</button>
+        <Button 
+          variant="contained" 
+          onClick={btnClickHandler}
+        >
+          Show devices
+        </Button>
       </div>
-  	  */}
     </div>
   )
 }
-
-//      "zoom": 10.098456912728658,
 
 
 const Map: React.FC = ({}) => {
@@ -103,12 +123,17 @@ const Map: React.FC = ({}) => {
 
   const fetchData = async () => {
     const response = await fetch(
-      apiUrl + "/api/devices/track?limit=150"
+      apiUrl + "/devices/track?limit=150"
     );
-    const dataNew = await response.json();
-    if (dataNew && dataNew['status'] === "ok") {
-      setData(dataNew);
+    if (response.ok) {
+      const dataNew = await response.json();
+      if (dataNew && dataNew['status'] === "ok") {
+        setData(dataNew);
+      }
+    } else {
+      alert(`Ошибка запроса к бэкенду: ${response.status}`);
     }
+
   }
 
   useEffect(() => {
@@ -125,7 +150,7 @@ const Map: React.FC = ({}) => {
 	  	try {
 	  		return KeplerGlSchema.getConfigToSave();
 	  	} catch(e) {
-	  		console.log(e);
+	  		//console.log(e);
 	  		return mapConfig;
 	  	}
 	  	
@@ -181,7 +206,7 @@ const Map: React.FC = ({}) => {
   	console.log("data", data)
     if (data) {
       const dataTransformed = transformData(data["tracks"]);
-      setTimeout(() => fetchData(), 100000)
+      setTimeout(() => fetchData(), 1000)
 
       let mapConfigToLoad = getConfig(isFirstRender)
 
