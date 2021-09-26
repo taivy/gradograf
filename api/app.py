@@ -65,12 +65,14 @@ def devices_tracks():
 
     json_resp = {
         "status": "ok",
-        "tracks": data
+        "tracks": limited_data
     }
 
     response = make_response(jsonify(json_resp))
 
     tracks_n_real_time += 1
+    if tracks_n_real_time > limit - 15:
+    	tracks_n_real_time = 0
     return response
 
 
