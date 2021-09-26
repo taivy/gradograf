@@ -1,9 +1,10 @@
 // @ts-nocheck
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, createRef } from 'react';
 import { Provider, useDispatch } from "react-redux";
-import { Button } from '@material-ui/core';
+import { Button, Modal, Typography, Box, Checkbox, TextField } from '@material-ui/core';
 import { configureStore } from '@reduxjs/toolkit'
+import Multiselect from 'multiselect-react-dropdown';
 
 // @ts-ignore
 import { taskMiddleware } from "react-palm/tasks";
@@ -28,8 +29,36 @@ const store = configureStore({
 })
 
 
+const TRACKS_LIMIT = 150;
+
+
+const modalStyle = {
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: 400,
+  bgcolor: 'background.paper',
+  border: '2px solid #000',
+  boxShadow: 24,
+  p: 4,
+};
+
+
+
 const App: React.FC = ({}) => {
   const apiUrl = process.env.REACT_APP_API_URL;
+
+  const [devicesMenuModalOpen, setDevicesMenuModalOpen] = useState(false);
+  const handleModalClose = () => setDevicesMenuModalOpen(false);
+
+  const [devicesIds, setDevicesIds] = useState(null);
+  const [realTimeIsChecked, setRealTimeIsChecked] = useState(true);
+  const [startTime, setStartTime] = useState(null);
+  const [endTime, setEndTime] = useState(null);
+
+  const multiselectRef = createRef();
+
 
   const fetchDevicesIds = async () => {
     const response = await fetch(
@@ -41,16 +70,45 @@ const App: React.FC = ({}) => {
     }
     const data = await response.json();
     if (data && data['status'] === "ok") {
-      return data['ids']
+      setDevicesIds(data['ids']);
     }
   }
 
-  const btnClickHandler = useCallback(async () => {
-    const devicesIds = await fetchDevicesIds();
+  const showDevicesModal = async () => {
+    await fetchDevicesIds();
+
     console.log("devicesIds", devicesIds)
+    setDevicesMenuModalOpen(true);
+  }
 
-  }, [])
+  const fetchDeviceIdTrack = async (deviceId, isRealTime, startTime, endTime) => {
+    const url = new URL(apiUrl + `/devices/${deviceId}/track`);
+    const qryParams = { start_t: startTime, end_t: endTime, limit: TRACKS_LIMIT };
+    url.search = new URLSearchParams(qryParams).toString();
+    const response = await fetch(url);
+    if (response.ok) {
+      const dataNew = await response.json();
+      if (dataNew && dataNew['status'] === "ok") {
+        return dataNew;
+      }
+    } else {
+      alert(`Ошибка запроса к бэкенду: ${response.status}`);
+    }
+    if (isRealTime) {
+      // TODO
+    }
+  }
 
+  const showSelectedTracks = async () => {
+    const selectedIds = multiselectRef.current.getSelectedItems();
+    const isRealTime = realTimeIsChecked;
+    const newData = {};
+    for (let deviceId of selectedIds) {
+      const deviceTrack = await fetchDeviceIdTrack(deviceId, isRealTime, startTime, endTime);
+      newData[deviceId] = deviceTrack[deviceId];
+    }
+
+  }
 
   return (
     <div style={{
@@ -68,11 +126,78 @@ const App: React.FC = ({}) => {
       }}>
         <Button 
           variant="contained" 
-          onClick={btnClickHandler}
+          onClick={showDevicesModal}
         >
           Show devices
         </Button>
       </div>
+      <Modal
+        open={devicesMenuModalOpen}
+        onClose={handleModalClose}
+      >
+        <Box sx={modalStyle}>
+          <Typography id="modal-modal-title" variant="h6" component="h2">
+            Select devices ids
+          </Typography>
+          <div style={{ marginTop: '20px' }}>
+            <div style={{ marginBottom: '15px' }}>
+              <Multiselect
+                options={devicesIds} 
+                closeOnSelect={false}
+                placeholder={"Select devices ids"}
+                showCheckbox={true}
+                ref={multiselectRef}
+                isObject={false}
+                avoidHighlightFirstOption={true}
+              />
+            </div>
+            <div style={{ marginBottom: '15px' }}>
+              <TextField
+                id="datetime-start"
+                label="Start time"
+                type="datetime-local"
+                //defaultValue="2017-05-24T10:30"
+                //sx={{ width: 250 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                style={{ marginBottom: '10px' }}
+              />
+              <TextField
+                id="datetime-end"
+                label="End time"
+                type="datetime-local"
+                //defaultValue="2017-05-24T10:30"
+                //sx={{ width: 250 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
+              <Checkbox
+                checked={realTimeIsChecked}
+                onChange={(e) => setRealTimeIsChecked(e.target.checked)}
+              />
+              <Typography>
+                Show in real-time
+              </Typography>
+            </div>
+            <Button 
+              variant="contained" 
+              onClick={showSelectedTracks}
+            >
+              Show tracks
+            </Button>
+          </div>
+
+        </Box>
+      </Modal>
+
     </div>
   )
 }
@@ -123,7 +248,7 @@ const Map: React.FC = ({}) => {
 
   const fetchData = async () => {
     const response = await fetch(
-      apiUrl + "/devices/track?limit=150"
+      apiUrl + `/devices/track?limit=${TRACKS_LIMIT}`
     );
     if (response.ok) {
       const dataNew = await response.json();
@@ -206,7 +331,7 @@ const Map: React.FC = ({}) => {
   	console.log("data", data)
     if (data) {
       const dataTransformed = transformData(data["tracks"]);
-      setTimeout(() => fetchData(), 1000)
+      setTimeout(() => fetchData(), 100000)
 
       let mapConfigToLoad = getConfig(isFirstRender)
 
